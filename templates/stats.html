@@ -8,13 +8,11 @@
             fetch("/get-stats")
                 .then(response => response.json())
                 .then(data => {
-                    // Преобразуйте данные в формат, который вы хотите отобразить
                     var statsHtml = "<ul>";
                     for (var key in data) {
                         statsHtml += "<li>" + data[key]["name"] + " - " + data[key]["search_count"] + "</li>";
                     }
                     statsHtml += "</ul>";
-                    // Выведите данные в элемент stats-container
                     statsContainer.innerHTML = statsHtml;
                 })
                 .catch(error => {
@@ -24,7 +22,29 @@
     </script>
 </head>
 <body>
-    <h1>Статистика поиска</h1>
-    <div id="stats-container"></div>
+    <div id="app-container" class="container">
+        <h1>Статистика поиска</h1>
+        <button id="get-stats-button">Обовить статистику</button>
+        <div id="stats-container"></div>
+
+        <script>
+            document.getElementById("get-stats-button").addEventListener("click", function() {
+            var statsContainer = document.getElementById("stats-container");
+            fetch("/get-stats")
+                .then(response => response.json())
+                .then(data => {
+                    var statsHtml = "<ul>";
+                    for (var key in data) {
+                        statsHtml += "<li>" + data[key]["name"] + " - " + data[key]["search_count"] + "</li>";
+                    }
+                    statsHtml += "</ul>";
+                    statsContainer.innerHTML = statsHtml;
+                })
+                .catch(error => {
+                    console.log("Error:", error);
+                });
+            });
+        </script>
+    </div>
 </body>
 </html>
