@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            var statsContainer = document.getElementById("stats-container");
+            fetch("/get-stats")
+                .then(response => response.json())
+                .then(data => {
+                    // Преобразуйте данные в формат, который вы хотите отобразить
+                    var statsHtml = "<ul>";
+                    for (var key in data) {
+                        statsHtml += "<li>" + data[key]["name"] + " - " + data[key]["search_count"] + "</li>";
+                    }
+                    statsHtml += "</ul>";
+                    // Выведите данные в элемент stats-container
+                    statsContainer.innerHTML = statsHtml;
+                })
+                .catch(error => {
+                    console.log("Error:", error);
+                });
+        });
+    </script>
+</head>
+<body>
+    <h1>Статистика поиска</h1>
+    <div id="stats-container"></div>
+</body>
+</html>

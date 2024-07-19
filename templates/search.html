@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        $(document).ready(function() {
+    function autocomplete(input) {
+        input.addEventListener("input", function(e) {
+            var value = input.value;
+
+            if (value.length > 0) {
+                fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${value}&count=10&language=ru&format=json`)
+                    .then(response => response.json())
+                    .then(data => {
+                        var suggestions = data.results.map(city => {
+                            return {
+                                id: city.id,
+                                name: city.name,
+                                country: city.country,
+                                admin1: city.admin1,
+                                latitude: city.latitude,
+                                longitude: city.longitude
+                            };
+                        });
+                        showSuggestions(suggestions);
+                    })
+                    .catch(error => console.error('Error fetching city data:', error));
+            } else {
+                showSuggestions([]);
+            }
+        });
+
+        function showSuggestions(suggestions) {
+            var suggestionList = document.getElementById("suggestion-list");
+            suggestionList.innerHTML = "";
+
+            var suggestionContainer = document.createElement("div");
+            suggestionContainer.style.overflowY = "scroll";
+            suggestionContainer.style.maxHeight = "100px";
+
+            for (var i = 0; i < suggestions.length; i++) {
+                var listItem = document.createElement("div");
+                var suggestion = suggestions[i];
+                var cityName = suggestion.name;
+                var country = suggestion.country;
+                var admin1 = suggestion.admin1;
+                var latitude = suggestion.latitude;
+                var longitude = suggestion.longitude;
+
+                listItem.textContent = cityName + " - " + country + ", " + admin1;
+                listItem.classList.add("suggestion-item");
+                (function(suggestion) {
+                    listItem.addEventListener("click", function() {
+                        addToLastSearch(suggestion);
+                        updateLastSearchList();
+                        updateCityInfo(suggestion);
+                    });
+                })(suggestion);
+                suggestionContainer.appendChild(listItem);
+            }
+
+            suggestionList.appendChild(suggestionContainer);
+        }
+    }
+
+    function addToLastSearch(suggestion) {
+        var lastSearch = localStorage.getItem("lastSearch");
+        if (lastSearch) {
+            lastSearch = JSON.parse(lastSearch);
+        } else {
+            lastSearch = [];
+        }
+        var existingItem = lastSearch.find(item => item.id === suggestion.id);
+        if (!existingItem) {
+            lastSearch.push(suggestion);
+        }
+
+        if (lastSearch.length > 3) {
+            lastSearch.shift();
+        }
+
+        localStorage.setItem("lastSearch", JSON.stringify(lastSearch));
+    }
+
+    function updateLastSearchList() {
+        var lastSearchList = document.getElementById("last-search-list");
+        lastSearchList.innerHTML = "";
+
+        var lastSearch = localStorage.getItem("lastSearch");
+        if (lastSearch) {
+            lastSearch = JSON.parse(lastSearch);
+
+            for (var i = 0; i < lastSearch.length; i++) {
+                var listItem = document.createElement("li");
+                var suggestion = lastSearch[i];
+                var cityName = suggestion.name;
+                var country = suggestion.country;
+                var admin1 = suggestion.admin1;
+
+                listItem.textContent = cityName + " - " + country + ", " + admin1;
+                listItem.classList.add("last-search-item");
+                (function(suggestion) {
+                    listItem.addEventListener("click", function() {
+                        updateCityInfo(suggestion);
+                    });
+                })(suggestion);
+                lastSearchList.appendChild(listItem);
+            }
+        }
+    }
+
+    function displayChart(data) {
+    var ctx = document.getElementById('weather-chart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+        labels: data.hourly.time,
+        datasets: [{
+            label: 'Температура (°C)',
+            data: data.hourly.temperature_2m,
+            fill: false,
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1
+        }]
+        }
+    });
+    }
+
+    var selectedCity = null;
+    function updateCityInfo(suggestion) {
+        var input = document.getElementById("city-input");
+        var event = new Event('input', {
+            bubbles: true,
+            cancelable: true,
+        });
+
+        selectedCity = suggestion;
+        input.value = suggestion.name;
+        input.dispatchEvent(event);
+        document.getElementById("city-name").textContent = suggestion.name + " - " + suggestion.country;
+        document.getElementById("info").textContent = "[" + suggestion.id + "]" + suggestion.name + " - " + suggestion.country + ", " + suggestion.admin1;
+        document.getElementById("coordinates").textContent = "Latitude: " + suggestion.latitude + ", Longitude: " + suggestion.longitude;
+
+        fetch(`https://api.open-meteo.com/v1/forecast?latitude=${suggestion.latitude}&longitude=${suggestion.longitude}&hourly=temperature_2m`)
+        .then(response => response.json())
+        .then(data => {
+            console.log(data);
+            displayChart(data);
+        })
+        .catch(error => console.error('Error fetching weather data:', error));
+
+        fetch(`/stats/${suggestion.id}/${suggestion.id + " " + suggestion.name + " " + suggestion.country + " " + suggestion.admin1}`)
+        .then(response => {
+            if (response.ok) {
+            console.log('Stats updated successfully');
+            } else {
+            console.error('Error updating stats');
+            }
+        })
+        .catch(error => console.error('Error updating stats:', error));
+    }
+
+    function clearCity() {
+        document.getElementById("city-input").value = "";
+        document.getElementById("suggestion-list").innerHTML = "";
+    }
+
+    var cityInput = document.getElementById("city-input");
+    autocomplete(cityInput);
+
+    var searchButton = document.getElementById("clear-button");
+    searchButton.addEventListener("click", clearCity);
+
+    updateLastSearchList();
+});
+</script>
+</head>
+<body>
+    <div style="display: flex; flex-direction: row">
+        <div id="search-container">
+            <h1>Weather App</h1>
+            <h2>Поиск города</h2>
+            <div id="search-row" style="display: inline-block; ">
+                <input type="text" id="city-input" placeholder="Название">
+                <button id="clear-button">Очистить</button>
+            </div>
+    
+            <div id="last-search">
+                <h2>Ваша история поиска:</h2>
+                <ul id="last-search-list"></ul>
+            </div>
+            <div id="cities">
+                <h2>Найденные города:</h2>
+                <ul id="suggestion-list"></ul>
+            </div>
+        </div>
+         <div id="weather-data">
+            <div id="city-info">
+                <h2 id="city-name">Выберете город:</h2>
+                <div id="info"></div>
+                <div id="coordinates"></div>
+            </div>
+            <canvas id="weather-chart"></canvas>
+         </div>
+    </div>
+    
+</body>
+</html>
